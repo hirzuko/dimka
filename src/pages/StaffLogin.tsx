@@ -5,6 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import logo from "@/assets/logo.png";
+
+// TEMPORARY HARDCODED CREDENTIALS FOR TESTING
+// TODO: Replace with proper backend authentication
+const ADMIN_USERNAME = "admin";
+const ADMIN_PASSWORD = "admin123";
 
 const StaffLogin = () => {
   const [username, setUsername] = useState("");
@@ -18,69 +24,45 @@ const StaffLogin = () => {
     setError("");
     setIsLoading(true);
 
-    // TODO: Replace with actual API call to your backend
-    // This is a placeholder that simulates authentication
-    // In production, you would:
-    // 1. Send credentials to your server
-    // 2. Server validates against hashed password in database
-    // 3. Server returns JWT token
-    // 4. Store token in localStorage/cookie
-    
-    try {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      // Placeholder validation - REPLACE THIS WITH REAL API CALL
-      // Example with fetch:
-      // const response = await fetch('/api/auth/login', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ username, password })
-      // });
-      // const data = await response.json();
-      // if (data.token) {
-      //   localStorage.setItem('auth_token', data.token);
-      //   navigate('/staff/dashboard');
-      // }
+    // Simulate loading
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // For demo purposes - remove this in production
-      if (username && password) {
-        // Store a session indicator (replace with real token)
-        sessionStorage.setItem("staff_authenticated", "true");
-        sessionStorage.setItem("staff_username", username);
-        navigate("/staff/dashboard");
-      } else {
-        setError("Invalid username or password");
-      }
-    } catch (err) {
-      setError("Authentication failed. Please try again.");
-    } finally {
-      setIsLoading(false);
+    // TEMPORARY: Hardcoded validation for testing
+    // TODO: Replace with real API call when backend is ready
+    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+      sessionStorage.setItem("staff_authenticated", "true");
+      sessionStorage.setItem("staff_username", username);
+      navigate("/staff/dashboard");
+    } else {
+      setError("Invalid username or password");
     }
+
+    setIsLoading(false);
   };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border/50 bg-background/80 backdrop-blur-md">
+      <header className="border-b border-border/50 glass animate-fade-in">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center gap-4">
           <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <h1 className="text-xl font-semibold text-foreground">VPN Support</h1>
+          <img src={logo} alt="Logo" className="w-8 h-8 rounded-lg" />
+          <h1 className="text-xl font-semibold text-foreground">Aurora VPN</h1>
         </div>
       </header>
 
       {/* Login Form */}
       <main className="flex-1 flex items-center justify-center px-6 py-16">
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-md glass border-border opacity-0 animate-scale-in">
           <CardHeader className="text-center space-y-4">
-            <div className="mx-auto w-16 h-16 bg-muted rounded-2xl flex items-center justify-center">
-              <Shield className="w-8 h-8 text-muted-foreground" />
+            <div className="mx-auto w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center animate-glow">
+              <Shield className="w-8 h-8 text-primary" />
             </div>
             <div>
               <CardTitle className="text-2xl">Staff Portal</CardTitle>
-              <CardDescription className="mt-2">
+              <CardDescription className="mt-2 text-muted-foreground">
                 Sign in to access the support dashboard
               </CardDescription>
             </div>
@@ -88,7 +70,7 @@ const StaffLogin = () => {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="bg-destructive/10 text-destructive text-sm px-4 py-3 rounded-lg">
+                <div className="bg-destructive/10 text-destructive text-sm px-4 py-3 rounded-lg animate-fade-in">
                   {error}
                 </div>
               )}
@@ -103,6 +85,7 @@ const StaffLogin = () => {
                   onChange={(e) => setUsername(e.target.value)}
                   required
                   disabled={isLoading}
+                  className="bg-card border-border focus:border-primary transition-colors"
                 />
               </div>
 
@@ -116,10 +99,11 @@ const StaffLogin = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   disabled={isLoading}
+                  className="bg-card border-border focus:border-primary transition-colors"
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full hover-scale" disabled={isLoading}>
                 {isLoading ? "Signing in..." : "Sign In"}
               </Button>
 

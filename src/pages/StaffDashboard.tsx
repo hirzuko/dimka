@@ -1,130 +1,30 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, LogOut, Send, MessageCircle } from "lucide-react";
+import { Search, LogOut, Send, MessageCircle, Bell } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import logo from "@/assets/logo.png";
+
+interface Message {
+  id: string;
+  text: string;
+  sender: "user" | "support";
+  timestamp: Date | string;
+}
 
 interface Conversation {
   id: string;
   name: string;
-  lastMessage: string;
-  timestamp: Date;
+  lastMessage?: string;
+  timestamp: string;
   status: "active" | "resolved";
-  messages: {
-    id: string;
-    text: string;
-    sender: "user" | "support";
-    timestamp: Date;
-  }[];
+  messages: Message[];
 }
 
-// Demo data - in production this would come from your database
-const demoConversations: Conversation[] = [
-  {
-    id: "1",
-    name: "Paul Wallice",
-    lastMessage: "I need help with my subscription",
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-    status: "active",
-    messages: [
-      {
-        id: "1",
-        text: "Hello Paul Wallice! Thank you for contacting VPN Support. I'm here to help you today. How can I assist you?",
-        sender: "support",
-        timestamp: new Date(Date.now() - 1000 * 60 * 10),
-      },
-      {
-        id: "2",
-        text: "Hello",
-        sender: "user",
-        timestamp: new Date(Date.now() - 1000 * 60 * 8),
-      },
-      {
-        id: "3",
-        text: "Thank you, How may I assist you today?",
-        sender: "support",
-        timestamp: new Date(Date.now() - 1000 * 60 * 7),
-      },
-      {
-        id: "4",
-        text: "I need help with my subscription",
-        sender: "user",
-        timestamp: new Date(Date.now() - 1000 * 60 * 5),
-      },
-    ],
-  },
-  {
-    id: "2",
-    name: "Dan",
-    lastMessage: "How can I help you?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 90),
-    status: "active",
-    messages: [
-      {
-        id: "1",
-        text: "Hello! How can I help you?",
-        sender: "support",
-        timestamp: new Date(Date.now() - 1000 * 60 * 90),
-      },
-    ],
-  },
-  {
-    id: "3",
-    name: "Gary A Barnhart",
-    lastMessage: "Are you there sir?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 6),
-    status: "active",
-    messages: [
-      {
-        id: "1",
-        text: "Hello! Welcome to VPN Support.",
-        sender: "support",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 7),
-      },
-      {
-        id: "2",
-        text: "Are you there sir?",
-        sender: "user",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 6),
-      },
-    ],
-  },
-  {
-    id: "4",
-    name: "Mark",
-    lastMessage: "hello",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
-    status: "active",
-    messages: [
-      {
-        id: "1",
-        text: "hello",
-        sender: "user",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
-      },
-    ],
-  },
-  {
-    id: "5",
-    name: "Prince",
-    lastMessage: "Bill",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 26),
-    status: "active",
-    messages: [
-      {
-        id: "1",
-        text: "Bill",
-        sender: "user",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 26),
-      },
-    ],
-  },
-];
-
 const StaffDashboard = () => {
-  const [conversations, setConversations] = useState<Conversation[]>(demoConversations);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [replyText, setReplyText] = useState("");
@@ -139,6 +39,31 @@ const StaffDashboard = () => {
     }
   }, [navigate]);
 
+  // Poll for new tickets from localStorage
+  useEffect(() => {
+    const pollTickets = () => {
+      const tickets = JSON.parse(localStorage.getItem("support_tickets") || "[]");
+      setConversations(tickets.map((t: any) => ({
+        ...t,
+        messages: t.messages || []
+      })));
+    };
+
+    pollTickets();
+    const interval = setInterval(pollTickets, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Update selected conversation when conversations change
+  useEffect(() => {
+    if (selectedConversation) {
+      const updated = conversations.find(c => c.id === selectedConversation.id);
+      if (updated) {
+        setSelectedConversation(updated);
+      }
+    }
+  }, [conversations]);
+
   const handleLogout = () => {
     sessionStorage.removeItem("staff_authenticated");
     sessionStorage.removeItem("staff_username");
@@ -149,51 +74,45 @@ const StaffDashboard = () => {
     e.preventDefault();
     if (!replyText.trim() || !selectedConversation) return;
 
-    const newMessage = {
+    const newMessage: Message = {
       id: Date.now().toString(),
       text: replyText,
-      sender: "support" as const,
-      timestamp: new Date(),
+      sender: "support",
+      timestamp: new Date().toISOString(),
     };
 
-    setConversations((prev) =>
-      prev.map((conv) =>
-        conv.id === selectedConversation.id
-          ? {
-              ...conv,
-              messages: [...conv.messages, newMessage],
-              lastMessage: replyText,
-              timestamp: new Date(),
-            }
-          : conv
-      )
-    );
-
-    setSelectedConversation((prev) =>
-      prev
-        ? {
-            ...prev,
-            messages: [...prev.messages, newMessage],
-          }
-        : null
-    );
+    // Update localStorage
+    const tickets = JSON.parse(localStorage.getItem("support_tickets") || "[]");
+    const updatedTickets = tickets.map((t: any) => {
+      if (t.id === selectedConversation.id) {
+        return {
+          ...t,
+          messages: [...(t.messages || []), newMessage],
+          lastMessage: replyText,
+          timestamp: new Date().toISOString()
+        };
+      }
+      return t;
+    });
+    localStorage.setItem("support_tickets", JSON.stringify(updatedTickets));
 
     setReplyText("");
   };
 
-  const formatTime = (date: Date) => {
+  const formatTime = (date: Date | string) => {
+    const d = new Date(date);
     const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
+    const diffMs = now.getTime() - d.getTime();
     const diffHours = diffMs / (1000 * 60 * 60);
 
     if (diffHours < 24) {
-      return date.toLocaleTimeString("en-US", {
+      return d.toLocaleTimeString("en-US", {
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
       });
     }
-    return date.toLocaleDateString("en-US", {
+    return d.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
     });
@@ -210,12 +129,15 @@ const StaffDashboard = () => {
   const staffUsername = sessionStorage.getItem("staff_username") || "Admin";
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background flex animate-fade-in">
       {/* Sidebar */}
-      <aside className="w-80 border-r border-border flex flex-col bg-card">
+      <aside className="w-80 border-r border-border flex flex-col glass">
         {/* Sidebar Header */}
         <div className="p-4 border-b border-border">
-          <h1 className="text-xl font-bold text-foreground mb-4">Support</h1>
+          <div className="flex items-center gap-3 mb-4">
+            <img src={logo} alt="Logo" className="w-8 h-8 rounded-lg" />
+            <h1 className="text-xl font-bold text-foreground">Support</h1>
+          </div>
           
           {/* Search */}
           <div className="relative">
@@ -224,7 +146,7 @@ const StaffDashboard = () => {
               placeholder="Search conversations..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
+              className="pl-9 bg-card border-border focus:border-primary transition-colors"
             />
           </div>
 
@@ -232,7 +154,7 @@ const StaffDashboard = () => {
           <div className="flex gap-2 mt-3">
             <button
               onClick={() => setStatusFilter("all")}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                 statusFilter === "all"
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:text-foreground"
@@ -242,7 +164,7 @@ const StaffDashboard = () => {
             </button>
             <button
               onClick={() => setStatusFilter("active")}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-1.5 ${
                 statusFilter === "active"
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:text-foreground"
@@ -255,7 +177,7 @@ const StaffDashboard = () => {
             </button>
             <button
               onClick={() => setStatusFilter("resolved")}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-1.5 ${
                 statusFilter === "resolved"
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:text-foreground"
@@ -275,23 +197,31 @@ const StaffDashboard = () => {
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 py-2">
               Conversations
             </h2>
-            {filteredConversations.map((conv) => (
-              <button
-                key={conv.id}
-                onClick={() => setSelectedConversation(conv)}
-                className={`w-full text-left p-3 rounded-lg mb-1 transition-colors ${
-                  selectedConversation?.id === conv.id
-                    ? "bg-primary/10 border border-primary/20"
-                    : "hover:bg-muted"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-medium text-foreground text-sm">{conv.name}</span>
-                  <span className="text-xs text-muted-foreground">{formatTime(conv.timestamp)}</span>
-                </div>
-                <p className="text-sm text-muted-foreground truncate">{conv.lastMessage}</p>
-              </button>
-            ))}
+            {filteredConversations.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No tickets yet</p>
+              </div>
+            ) : (
+              filteredConversations.map((conv, index) => (
+                <button
+                  key={conv.id}
+                  onClick={() => setSelectedConversation(conv)}
+                  className={`w-full text-left p-3 rounded-lg mb-1 transition-all duration-200 opacity-0 animate-fade-in-up hover-scale ${
+                    selectedConversation?.id === conv.id
+                      ? "bg-primary/10 border border-primary/30"
+                      : "hover:bg-muted"
+                  }`}
+                  style={{ animationDelay: `${index * 0.05}s` }}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-medium text-foreground text-sm">{conv.name}</span>
+                    <span className="text-xs text-muted-foreground">{formatTime(conv.timestamp)}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground truncate">{conv.lastMessage || "New conversation"}</p>
+                </button>
+              ))
+            )}
           </div>
         </ScrollArea>
 
@@ -302,7 +232,7 @@ const StaffDashboard = () => {
               <p className="font-medium text-foreground text-sm">{staffUsername}</p>
               <p className="text-xs text-muted-foreground">Support Agent</p>
             </div>
-            <Button variant="ghost" size="icon" onClick={handleLogout}>
+            <Button variant="ghost" size="icon" onClick={handleLogout} className="hover:bg-destructive/20 hover:text-destructive transition-colors">
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
@@ -314,7 +244,7 @@ const StaffDashboard = () => {
         {selectedConversation ? (
           <>
             {/* Chat Header */}
-            <header className="p-4 border-b border-border bg-card">
+            <header className="p-4 border-b border-border glass animate-fade-in">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="font-semibold text-foreground">{selectedConversation.name}</h2>
@@ -322,7 +252,10 @@ const StaffDashboard = () => {
                     {selectedConversation.status === "active" ? "Active conversation" : "Resolved"}
                   </p>
                 </div>
-                <Badge variant={selectedConversation.status === "active" ? "default" : "secondary"}>
+                <Badge 
+                  variant={selectedConversation.status === "active" ? "default" : "secondary"}
+                  className={selectedConversation.status === "active" ? "bg-primary" : ""}
+                >
                   {selectedConversation.status}
                 </Badge>
               </div>
@@ -331,40 +264,48 @@ const StaffDashboard = () => {
             {/* Messages */}
             <ScrollArea className="flex-1 p-6">
               <div className="space-y-4 max-w-3xl">
-                {selectedConversation.messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex flex-col ${
-                      message.sender === "support" ? "items-end" : "items-start"
-                    }`}
-                  >
-                    <div
-                      className={`max-w-[70%] rounded-2xl px-4 py-3 ${
-                        message.sender === "support"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-foreground"
-                      }`}
-                    >
-                      <p className="text-sm">{message.text}</p>
-                    </div>
-                    <span className="text-xs text-muted-foreground mt-1">
-                      {formatTime(message.timestamp)}
-                    </span>
+                {selectedConversation.messages.length === 0 ? (
+                  <div className="text-center py-16 text-muted-foreground opacity-0 animate-fade-in-up">
+                    <MessageCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No messages yet. The user is waiting for your response.</p>
                   </div>
-                ))}
+                ) : (
+                  selectedConversation.messages.map((message, index) => (
+                    <div
+                      key={message.id}
+                      className={`flex flex-col opacity-0 animate-fade-in-up ${
+                        message.sender === "support" ? "items-end" : "items-start"
+                      }`}
+                      style={{ animationDelay: `${index * 0.03}s` }}
+                    >
+                      <div
+                        className={`max-w-[70%] rounded-2xl px-4 py-3 transition-all ${
+                          message.sender === "support"
+                            ? "bg-primary text-primary-foreground"
+                            : "glass"
+                        }`}
+                      >
+                        <p className="text-sm">{message.text}</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {formatTime(message.timestamp)}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
             </ScrollArea>
 
             {/* Reply Input */}
-            <footer className="p-4 border-t border-border bg-card">
+            <footer className="p-4 border-t border-border glass animate-fade-in">
               <form onSubmit={handleSendReply} className="flex gap-3 max-w-3xl">
                 <Input
                   placeholder="Type your reply..."
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
-                  className="flex-1"
+                  className="flex-1 bg-card border-border focus:border-primary transition-colors"
                 />
-                <Button type="submit">
+                <Button type="submit" className="hover-scale">
                   <Send className="w-4 h-4 mr-2" />
                   Send
                 </Button>
@@ -372,10 +313,10 @@ const StaffDashboard = () => {
             </footer>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center opacity-0 animate-fade-in-up">
             <div className="text-center">
-              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                <MessageCircle className="w-8 h-8 text-muted-foreground" />
+              <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                <MessageCircle className="w-10 h-10 text-muted-foreground" />
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-2">Select a conversation</h3>
               <p className="text-muted-foreground">
