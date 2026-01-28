@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { api } from "@/lib/api";
 import logo from "@/assets/logo.png";
 
-// TEMPORARY HARDCODED CREDENTIALS FOR TESTING
-// TODO: Replace with proper backend authentication
-const ADMIN_USERNAME = "admin";
-const ADMIN_PASSWORD = "admin123";
+// FALLBACK CREDENTIALS FOR PREVIEW MODE (when no backend)
+const FALLBACK_USERNAME = "admin";
+const FALLBACK_PASSWORD = "admin123";
 
 const StaffLogin = () => {
   const [username, setUsername] = useState("");
@@ -24,17 +24,22 @@ const StaffLogin = () => {
     setError("");
     setIsLoading(true);
 
-    // Simulate loading
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    // TEMPORARY: Hardcoded validation for testing
-    // TODO: Replace with real API call when backend is ready
-    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+    try {
+      // Try API login first (for self-hosted)
+      const { token, user } = await api.login(username, password);
+      sessionStorage.setItem("staff_token", token);
       sessionStorage.setItem("staff_authenticated", "true");
-      sessionStorage.setItem("staff_username", username);
+      sessionStorage.setItem("staff_username", user.username);
       navigate("/staff/dashboard");
-    } else {
-      setError("Invalid username or password");
+    } catch {
+      // Fallback to hardcoded credentials (for Lovable preview)
+      if (username === FALLBACK_USERNAME && password === FALLBACK_PASSWORD) {
+        sessionStorage.setItem("staff_authenticated", "true");
+        sessionStorage.setItem("staff_username", username);
+        navigate("/staff/dashboard");
+      } else {
+        setError("Invalid username or password");
+      }
     }
 
     setIsLoading(false);

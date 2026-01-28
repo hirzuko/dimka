@@ -3,15 +3,21 @@ import { ArrowLeft, Send, Clock, Copy, Check } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { api } from "@/lib/api";
 import { getAllTickets, getTicketById, createTicket, addMessageToTicket, getTicketUrl } from "@/lib/ticketStorage";
 import logo from "@/assets/logo.png";
 
 interface Message {
   id: string;
-  text: string;
+  text?: string;
+  content?: string;
   sender: "user" | "support";
-  timestamp: Date | string;
+  timestamp?: Date | string;
+  created_at?: string;
 }
+
+// Check if API is available
+const useApi = import.meta.env.VITE_API_URL ? true : false;
 
 const Chat = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -35,54 +41,94 @@ const Chat = () => {
   useEffect(() => {
     const existingTicketId = searchParams.get("ticket");
     if (existingTicketId) {
-      const ticket = getTicketById(existingTicketId);
-      if (ticket) {
-        setTicketId(existingTicketId);
-        setUserName(ticket.name);
-        setMessages(ticket.messages);
-        setIsStarted(true);
-      }
+      loadTicket(existingTicketId);
     }
   }, [searchParams]);
 
-  const handleStartChat = (e: React.FormEvent) => {
+  const loadTicket = async (id: string) => {
+    try {
+      if (useApi) {
+        const ticket = await api.getTicket(id);
+        setTicketId(id);
+        setUserName(ticket.client_name);
+        setMessages(ticket.messages || []);
+        setIsStarted(true);
+      } else {
+        const ticket = getTicketById(id);
+        if (ticket) {
+          setTicketId(id);
+          setUserName(ticket.name);
+          setMessages(ticket.messages);
+          setIsStarted(true);
+        }
+      }
+    } catch {
+      console.error("Ticket not found");
+    }
+  };
+
+  const handleStartChat = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userName.trim()) return;
 
-    const ticket = createTicket(userName);
-    setTicketId(ticket.id);
-    setIsStarted(true);
-    
-    // Update URL with ticket ID
-    setSearchParams({ ticket: ticket.id });
-
-    // TODO: In future, send Telegram webhook notification here
-    // fetch(TELEGRAM_WEBHOOK_URL, { method: 'POST', body: JSON.stringify({ new_ticket: userName }) })
+    try {
+      if (useApi) {
+        const { ticketId: newId } = await api.createTicket(userName);
+        setTicketId(newId);
+        setSearchParams({ ticket: newId });
+      } else {
+        const ticket = createTicket(userName);
+        setTicketId(ticket.id);
+        setSearchParams({ ticket: ticket.id });
+      }
+      setIsStarted(true);
+    } catch (err) {
+      console.error("Failed to create ticket:", err);
+    }
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim() || !ticketId) return;
 
-    const newMessage = addMessageToTicket(ticketId, {
-      text: inputValue,
-      sender: "user"
-    });
-
-    if (newMessage) {
-      setMessages((prev) => [...prev, newMessage]);
+    try {
+      if (useApi) {
+        const msg = await api.sendMessage(ticketId, inputValue, "user");
+        setMessages((prev) => [...prev, msg]);
+      } else {
+        const newMessage = addMessageToTicket(ticketId, {
+          text: inputValue,
+          sender: "user"
+        });
+        if (newMessage) {
+          setMessages((prev) => [...prev, newMessage]);
+        }
+      }
+      setInputValue("");
+    } catch (err) {
+      console.error("Failed to send message:", err);
     }
-    setInputValue("");
   };
 
   // Poll for new messages from operator
   useEffect(() => {
     if (!isStarted || !ticketId) return;
 
-    const pollMessages = setInterval(() => {
-      const ticket = getTicketById(ticketId);
-      if (ticket && ticket.messages) {
-        setMessages(ticket.messages);
+    const pollMessages = setInterval(async () => {
+      try {
+        if (useApi) {
+          const ticket = await api.getTicket(ticketId);
+          if (ticket?.messages) {
+            setMessages(ticket.messages);
+          }
+        } else {
+          const ticket = getTicketById(ticketId);
+          if (ticket && ticket.messages) {
+            setMessages(ticket.messages);
+          }
+        }
+      } catch {
+        // Silent fail on poll
       }
     }, 1000);
 
@@ -91,11 +137,17 @@ const Chat = () => {
 
   const handleCopyLink = () => {
     if (ticketId) {
-      navigator.clipboard.writeText(getTicketUrl(ticketId));
+      const url = useApi 
+        ? `${window.location.origin}/chat?ticket=${ticketId}`
+        : getTicketUrl(ticketId);
+      navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   };
+
+  const getMessageText = (msg: Message) => msg.text || msg.content || "";
+  const getMessageTime = (msg: Message) => msg.timestamp || msg.created_at || new Date();
 
   const formatTime = (date: Date | string) => {
     return new Date(date).toLocaleTimeString("en-US", {
@@ -206,10 +258,10 @@ const Chat = () => {
                     : "glass"
                 }`}
               >
-                <p className="text-sm leading-relaxed">{message.text}</p>
+                <p className="text-sm leading-relaxed">{getMessageText(message)}</p>
               </div>
               <span className="text-xs text-muted-foreground mt-1 px-1">
-                {formatTime(message.timestamp)}
+                {formatTime(getMessageTime(message))}
               </span>
             </div>
           ))}
