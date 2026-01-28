@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, LogOut, Send, MessageCircle, Bell } from "lucide-react";
+import { Search, LogOut, Send, MessageCircle, Bell, CheckCircle, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { getAllTickets, addMessageToTicket, updateTicketStatus, type Ticket } from "@/lib/ticketStorage";
 import logo from "@/assets/logo.png";
 
 interface Message {
@@ -14,18 +15,9 @@ interface Message {
   timestamp: Date | string;
 }
 
-interface Conversation {
-  id: string;
-  name: string;
-  lastMessage?: string;
-  timestamp: string;
-  status: "active" | "resolved";
-  messages: Message[];
-}
-
 const StaffDashboard = () => {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [conversations, setConversations] = useState<Ticket[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<Ticket | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [replyText, setReplyText] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "resolved">("all");
@@ -42,11 +34,8 @@ const StaffDashboard = () => {
   // Poll for new tickets from localStorage
   useEffect(() => {
     const pollTickets = () => {
-      const tickets = JSON.parse(localStorage.getItem("support_tickets") || "[]");
-      setConversations(tickets.map((t: any) => ({
-        ...t,
-        messages: t.messages || []
-      })));
+      const tickets = getAllTickets();
+      setConversations(tickets);
     };
 
     pollTickets();
@@ -62,7 +51,7 @@ const StaffDashboard = () => {
         setSelectedConversation(updated);
       }
     }
-  }, [conversations]);
+  }, [conversations, selectedConversation?.id]);
 
   const handleLogout = () => {
     sessionStorage.removeItem("staff_authenticated");
@@ -74,29 +63,19 @@ const StaffDashboard = () => {
     e.preventDefault();
     if (!replyText.trim() || !selectedConversation) return;
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
+    addMessageToTicket(selectedConversation.id, {
       text: replyText,
-      sender: "support",
-      timestamp: new Date().toISOString(),
-    };
-
-    // Update localStorage
-    const tickets = JSON.parse(localStorage.getItem("support_tickets") || "[]");
-    const updatedTickets = tickets.map((t: any) => {
-      if (t.id === selectedConversation.id) {
-        return {
-          ...t,
-          messages: [...(t.messages || []), newMessage],
-          lastMessage: replyText,
-          timestamp: new Date().toISOString()
-        };
-      }
-      return t;
+      sender: "support"
     });
-    localStorage.setItem("support_tickets", JSON.stringify(updatedTickets));
 
     setReplyText("");
+  };
+
+  const handleToggleStatus = () => {
+    if (!selectedConversation) return;
+    
+    const newStatus = selectedConversation.status === "active" ? "resolved" : "active";
+    updateTicketStatus(selectedConversation.id, newStatus);
   };
 
   const formatTime = (date: Date | string) => {
@@ -218,7 +197,14 @@ const StaffDashboard = () => {
                     <span className="font-medium text-foreground text-sm">{conv.name}</span>
                     <span className="text-xs text-muted-foreground">{formatTime(conv.timestamp)}</span>
                   </div>
-                  <p className="text-sm text-muted-foreground truncate">{conv.lastMessage || "New conversation"}</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground truncate flex-1 mr-2">
+                      {conv.lastMessage || "New conversation"}
+                    </p>
+                    {conv.status === "resolved" && (
+                      <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                    )}
+                  </div>
                 </button>
               ))
             )}
@@ -249,15 +235,39 @@ const StaffDashboard = () => {
                 <div>
                   <h2 className="font-semibold text-foreground">{selectedConversation.name}</h2>
                   <p className="text-sm text-muted-foreground">
-                    {selectedConversation.status === "active" ? "Active conversation" : "Resolved"}
+                    Ticket #{selectedConversation.id}
                   </p>
                 </div>
-                <Badge 
-                  variant={selectedConversation.status === "active" ? "default" : "secondary"}
-                  className={selectedConversation.status === "active" ? "bg-primary" : ""}
-                >
-                  {selectedConversation.status}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleToggleStatus}
+                    className={`gap-2 transition-all duration-200 ${
+                      selectedConversation.status === "active"
+                        ? "hover:bg-green-500/10 hover:text-green-500 hover:border-green-500/50"
+                        : "hover:bg-primary/10 hover:text-primary hover:border-primary/50"
+                    }`}
+                  >
+                    {selectedConversation.status === "active" ? (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        Mark Resolved
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw className="w-4 h-4" />
+                        Reopen
+                      </>
+                    )}
+                  </Button>
+                  <Badge 
+                    variant={selectedConversation.status === "active" ? "default" : "secondary"}
+                    className={selectedConversation.status === "active" ? "bg-primary" : "bg-green-500/20 text-green-500"}
+                  >
+                    {selectedConversation.status}
+                  </Badge>
+                </div>
               </div>
             </header>
 
@@ -288,6 +298,7 @@ const StaffDashboard = () => {
                         <p className="text-sm">{message.text}</p>
                       </div>
                       <span className="text-xs text-muted-foreground mt-1">
+                        {message.sender === "support" ? "You • " : `${selectedConversation.name} • `}
                         {formatTime(message.timestamp)}
                       </span>
                     </div>
