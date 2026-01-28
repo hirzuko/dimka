@@ -5,37 +5,64 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { api } from "@/lib/api";
 import { getAllTickets, addMessageToTicket, updateTicketStatus, type Ticket } from "@/lib/ticketStorage";
 import logo from "@/assets/logo.png";
 
 interface Message {
   id: string;
-  text: string;
+  text?: string;
+  content?: string;
   sender: "user" | "support";
-  timestamp: Date | string;
+  timestamp?: Date | string;
+  created_at?: string;
 }
 
+interface ApiTicket {
+  id: string;
+  client_name: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  messages: Message[];
+}
+
+// Check if API is available
+const useApiMode = import.meta.env.VITE_API_URL ? true : false;
+
 const StaffDashboard = () => {
-  const [conversations, setConversations] = useState<Ticket[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<Ticket | null>(null);
+  const [conversations, setConversations] = useState<(Ticket | ApiTicket)[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<(Ticket | ApiTicket) | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [replyText, setReplyText] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "resolved">("all");
   const navigate = useNavigate();
 
+  const getToken = () => sessionStorage.getItem("staff_token") || "";
+
   useEffect(() => {
-    // Check if user is authenticated
     const isAuthenticated = sessionStorage.getItem("staff_authenticated");
     if (!isAuthenticated) {
       navigate("/staff/login");
     }
   }, [navigate]);
 
-  // Poll for new tickets from localStorage
+  // Poll for tickets
   useEffect(() => {
-    const pollTickets = () => {
-      const tickets = getAllTickets();
-      setConversations(tickets);
+    const pollTickets = async () => {
+      try {
+        if (useApiMode) {
+          const tickets = await api.getAllTickets(getToken());
+          setConversations(tickets);
+        } else {
+          const tickets = getAllTickets();
+          setConversations(tickets);
+        }
+      } catch {
+        // Fallback to localStorage if API fails
+        const tickets = getAllTickets();
+        setConversations(tickets);
+      }
     };
 
     pollTickets();
@@ -56,27 +83,73 @@ const StaffDashboard = () => {
   const handleLogout = () => {
     sessionStorage.removeItem("staff_authenticated");
     sessionStorage.removeItem("staff_username");
+    sessionStorage.removeItem("staff_token");
     navigate("/staff/login");
   };
 
-  const handleSendReply = (e: React.FormEvent) => {
+  const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!replyText.trim() || !selectedConversation) return;
 
-    addMessageToTicket(selectedConversation.id, {
-      text: replyText,
-      sender: "support"
-    });
-
-    setReplyText("");
+    try {
+      if (useApiMode) {
+        await api.sendReply(selectedConversation.id, replyText, getToken());
+      } else {
+        addMessageToTicket(selectedConversation.id, {
+          text: replyText,
+          sender: "support"
+        });
+      }
+      setReplyText("");
+    } catch (err) {
+      console.error("Failed to send reply:", err);
+      // Fallback to localStorage
+      addMessageToTicket(selectedConversation.id, {
+        text: replyText,
+        sender: "support"
+      });
+      setReplyText("");
+    }
   };
 
-  const handleToggleStatus = () => {
+  const handleToggleStatus = async () => {
     if (!selectedConversation) return;
     
-    const newStatus = selectedConversation.status === "active" ? "resolved" : "active";
-    updateTicketStatus(selectedConversation.id, newStatus);
+    const currentStatus = getStatus(selectedConversation);
+    const newStatus = currentStatus === "active" ? "resolved" : "active";
+    
+    try {
+      if (useApiMode) {
+        await api.updateTicketStatus(selectedConversation.id, newStatus, getToken());
+      } else {
+        updateTicketStatus(selectedConversation.id, newStatus);
+      }
+    } catch {
+      updateTicketStatus(selectedConversation.id, newStatus);
+    }
   };
+
+  // Helper functions for API/localStorage compatibility
+  const getName = (conv: Ticket | ApiTicket) => 
+    'name' in conv ? conv.name : conv.client_name;
+  
+  const getStatus = (conv: Ticket | ApiTicket) => conv.status;
+  
+  const getTimestamp = (conv: Ticket | ApiTicket) => 
+    'timestamp' in conv ? conv.timestamp : conv.updated_at;
+  
+  const getLastMessage = (conv: Ticket | ApiTicket) => {
+    if ('lastMessage' in conv) return conv.lastMessage;
+    const msgs = conv.messages || [];
+    const last = msgs[msgs.length - 1];
+    if (!last) return "";
+    return getMessageText(last);
+  };
+
+  const getMessages = (conv: Ticket | ApiTicket): Message[] => conv.messages || [];
+  
+  const getMessageText = (msg: Message) => msg.text || msg.content || "";
+  const getMessageTime = (msg: Message) => msg.timestamp || msg.created_at || new Date();
 
   const formatTime = (date: Date | string) => {
     const d = new Date(date);
@@ -98,13 +171,13 @@ const StaffDashboard = () => {
   };
 
   const filteredConversations = conversations.filter((conv) => {
-    const matchesSearch = conv.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || conv.status === statusFilter;
+    const matchesSearch = getName(conv).toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === "all" || getStatus(conv) === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  const activeCount = conversations.filter((c) => c.status === "active").length;
-  const resolvedCount = conversations.filter((c) => c.status === "resolved").length;
+  const activeCount = conversations.filter((c) => getStatus(c) === "active").length;
+  const resolvedCount = conversations.filter((c) => getStatus(c) === "resolved").length;
   const staffUsername = sessionStorage.getItem("staff_username") || "Admin";
 
   return (
@@ -194,14 +267,14 @@ const StaffDashboard = () => {
                   style={{ animationDelay: `${index * 0.05}s` }}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium text-foreground text-sm">{conv.name}</span>
-                    <span className="text-xs text-muted-foreground">{formatTime(conv.timestamp)}</span>
+                    <span className="font-medium text-foreground text-sm">{getName(conv)}</span>
+                    <span className="text-xs text-muted-foreground">{formatTime(getTimestamp(conv))}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground truncate flex-1 mr-2">
-                      {conv.lastMessage || "New conversation"}
+                      {getLastMessage(conv) || "New conversation"}
                     </p>
-                    {conv.status === "resolved" && (
+                    {getStatus(conv) === "resolved" && (
                       <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
                     )}
                   </div>
@@ -233,7 +306,7 @@ const StaffDashboard = () => {
             <header className="p-4 border-b border-border glass animate-fade-in">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="font-semibold text-foreground">{selectedConversation.name}</h2>
+                  <h2 className="font-semibold text-foreground">{getName(selectedConversation)}</h2>
                   <p className="text-sm text-muted-foreground">
                     Ticket #{selectedConversation.id}
                   </p>
@@ -244,12 +317,12 @@ const StaffDashboard = () => {
                     size="sm"
                     onClick={handleToggleStatus}
                     className={`gap-2 transition-all duration-200 ${
-                      selectedConversation.status === "active"
+                      getStatus(selectedConversation) === "active"
                         ? "hover:bg-green-500/10 hover:text-green-500 hover:border-green-500/50"
                         : "hover:bg-primary/10 hover:text-primary hover:border-primary/50"
                     }`}
                   >
-                    {selectedConversation.status === "active" ? (
+                    {getStatus(selectedConversation) === "active" ? (
                       <>
                         <CheckCircle className="w-4 h-4" />
                         Mark Resolved
@@ -262,10 +335,10 @@ const StaffDashboard = () => {
                     )}
                   </Button>
                   <Badge 
-                    variant={selectedConversation.status === "active" ? "default" : "secondary"}
-                    className={selectedConversation.status === "active" ? "bg-primary" : "bg-green-500/20 text-green-500"}
+                    variant={getStatus(selectedConversation) === "active" ? "default" : "secondary"}
+                    className={getStatus(selectedConversation) === "active" ? "bg-primary" : "bg-green-500/20 text-green-500"}
                   >
-                    {selectedConversation.status}
+                    {getStatus(selectedConversation)}
                   </Badge>
                 </div>
               </div>
@@ -274,13 +347,13 @@ const StaffDashboard = () => {
             {/* Messages */}
             <ScrollArea className="flex-1 p-6">
               <div className="space-y-4 max-w-3xl">
-                {selectedConversation.messages.length === 0 ? (
+                {getMessages(selectedConversation).length === 0 ? (
                   <div className="text-center py-16 text-muted-foreground opacity-0 animate-fade-in-up">
                     <MessageCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>No messages yet. The user is waiting for your response.</p>
                   </div>
                 ) : (
-                  selectedConversation.messages.map((message, index) => (
+                  getMessages(selectedConversation).map((message, index) => (
                     <div
                       key={message.id}
                       className={`flex flex-col opacity-0 animate-fade-in-up ${
@@ -295,11 +368,11 @@ const StaffDashboard = () => {
                             : "glass"
                         }`}
                       >
-                        <p className="text-sm">{message.text}</p>
+                        <p className="text-sm">{getMessageText(message)}</p>
                       </div>
                       <span className="text-xs text-muted-foreground mt-1">
-                        {message.sender === "support" ? "You • " : `${selectedConversation.name} • `}
-                        {formatTime(message.timestamp)}
+                        {message.sender === "support" ? "You • " : `${getName(selectedConversation)} • `}
+                        {formatTime(getMessageTime(message))}
                       </span>
                     </div>
                   ))
