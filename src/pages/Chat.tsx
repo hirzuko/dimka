@@ -1,22 +1,26 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowLeft, Send, Clock } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ArrowLeft, Send, Clock, Copy, Check } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getAllTickets, getTicketById, createTicket, addMessageToTicket, getTicketUrl } from "@/lib/ticketStorage";
 import logo from "@/assets/logo.png";
 
 interface Message {
   id: string;
   text: string;
   sender: "user" | "support";
-  timestamp: Date;
+  timestamp: Date | string;
 }
 
 const Chat = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [userName, setUserName] = useState("");
   const [isStarted, setIsStarted] = useState(false);
+  const [ticketId, setTicketId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -27,25 +31,30 @@ const Chat = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Check for existing ticket in URL
+  useEffect(() => {
+    const existingTicketId = searchParams.get("ticket");
+    if (existingTicketId) {
+      const ticket = getTicketById(existingTicketId);
+      if (ticket) {
+        setTicketId(existingTicketId);
+        setUserName(ticket.name);
+        setMessages(ticket.messages);
+        setIsStarted(true);
+      }
+    }
+  }, [searchParams]);
+
   const handleStartChat = (e: React.FormEvent) => {
     e.preventDefault();
     if (!userName.trim()) return;
 
+    const ticket = createTicket(userName);
+    setTicketId(ticket.id);
     setIsStarted(true);
     
-    // Save to localStorage for the dashboard to pick up
-    const ticketId = Date.now().toString();
-    const ticket = {
-      id: ticketId,
-      name: userName,
-      messages: [],
-      timestamp: new Date().toISOString(),
-      status: "active"
-    };
-    
-    const existingTickets = JSON.parse(localStorage.getItem("support_tickets") || "[]");
-    localStorage.setItem("support_tickets", JSON.stringify([ticket, ...existingTickets]));
-    localStorage.setItem("current_ticket_id", ticketId);
+    // Update URL with ticket ID
+    setSearchParams({ ticket: ticket.id });
 
     // TODO: In future, send Telegram webhook notification here
     // fetch(TELEGRAM_WEBHOOK_URL, { method: 'POST', body: JSON.stringify({ new_ticket: userName }) })
@@ -53,58 +62,42 @@ const Chat = () => {
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || !ticketId) return;
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
+    const newMessage = addMessageToTicket(ticketId, {
       text: inputValue,
-      sender: "user",
-      timestamp: new Date(),
-    };
+      sender: "user"
+    });
 
-    setMessages((prev) => [...prev, newMessage]);
-    setInputValue("");
-
-    // Save message to localStorage
-    const ticketId = localStorage.getItem("current_ticket_id");
-    if (ticketId) {
-      const tickets = JSON.parse(localStorage.getItem("support_tickets") || "[]");
-      const updatedTickets = tickets.map((t: any) => {
-        if (t.id === ticketId) {
-          return {
-            ...t,
-            messages: [...(t.messages || []), newMessage],
-            lastMessage: inputValue,
-            timestamp: new Date().toISOString()
-          };
-        }
-        return t;
-      });
-      localStorage.setItem("support_tickets", JSON.stringify(updatedTickets));
+    if (newMessage) {
+      setMessages((prev) => [...prev, newMessage]);
     }
-
-    // No auto-response - operator will respond from dashboard
+    setInputValue("");
   };
 
   // Poll for new messages from operator
   useEffect(() => {
-    if (!isStarted) return;
+    if (!isStarted || !ticketId) return;
 
     const pollMessages = setInterval(() => {
-      const ticketId = localStorage.getItem("current_ticket_id");
-      if (ticketId) {
-        const tickets = JSON.parse(localStorage.getItem("support_tickets") || "[]");
-        const currentTicket = tickets.find((t: any) => t.id === ticketId);
-        if (currentTicket && currentTicket.messages) {
-          setMessages(currentTicket.messages);
-        }
+      const ticket = getTicketById(ticketId);
+      if (ticket && ticket.messages) {
+        setMessages(ticket.messages);
       }
     }, 1000);
 
     return () => clearInterval(pollMessages);
-  }, [isStarted]);
+  }, [isStarted, ticketId]);
 
-  const formatTime = (date: Date) => {
+  const handleCopyLink = () => {
+    if (ticketId) {
+      navigator.clipboard.writeText(getTicketUrl(ticketId));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const formatTime = (date: Date | string) => {
     return new Date(date).toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
@@ -157,12 +150,32 @@ const Chat = () => {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="border-b border-border/50 glass animate-fade-in">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center gap-4">
-          <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <img src={logo} alt="Logo" className="w-8 h-8 rounded-lg" />
-          <h1 className="text-xl font-semibold text-foreground">Aurora Support</h1>
+        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <img src={logo} alt="Logo" className="w-8 h-8 rounded-lg" />
+            <h1 className="text-xl font-semibold text-foreground">Aurora Support</h1>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCopyLink}
+            className="gap-2 transition-all duration-200"
+          >
+            {copied ? (
+              <>
+                <Check className="w-4 h-4 text-green-500" />
+                <span className="text-green-500">Copied!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-4 h-4" />
+                <span className="hidden sm:inline">Copy Link</span>
+              </>
+            )}
+          </Button>
         </div>
       </header>
 
