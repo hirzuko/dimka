@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, LogOut, Send, MessageCircle, Bell, CheckCircle, RotateCcw } from "lucide-react";
+import { Search, LogOut, Send, MessageCircle, Bell, CheckCircle, RotateCcw, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -181,14 +181,23 @@ const StaffDashboard = () => {
   const staffUsername = sessionStorage.getItem("staff_username") || "Admin";
 
   return (
-    <div className="min-h-screen bg-background flex animate-fade-in">
+    <div className="min-h-screen bg-background flex animate-fade-in relative overflow-hidden">
+      {/* Cosmic Background */}
+      <div className="cosmic-orb w-96 h-96 -top-48 right-1/4 opacity-20" />
+      <div className="cosmic-orb w-64 h-64 bottom-20 left-1/3 opacity-15" style={{ animationDelay: '3s' }} />
+
       {/* Sidebar */}
-      <aside className="w-80 border-r border-border flex flex-col glass">
+      <aside className="w-80 border-r border-border/30 flex flex-col glass relative z-10">
         {/* Sidebar Header */}
-        <div className="p-4 border-b border-border">
+        <div className="p-4 border-b border-border/30">
           <div className="flex items-center gap-3 mb-4">
-            <img src={logo} alt="Logo" className="w-8 h-8 rounded-lg" />
-            <h1 className="text-xl font-bold text-foreground">Support</h1>
+            <img src={logo} alt="Logo" className="w-9 h-9 rounded-lg" />
+            <div>
+              <h1 className="text-lg font-bold">
+                <span className="gradient-text">Astronix</span>
+              </h1>
+              <p className="text-xs text-muted-foreground">Support Dashboard</p>
+            </div>
           </div>
           
           {/* Search */}
@@ -198,7 +207,7 @@ const StaffDashboard = () => {
               placeholder="Search conversations..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-card border-border focus:border-primary transition-colors"
+              className="pl-9 bg-card/50 border-border/50 focus:border-primary transition-all duration-300 rounded-xl"
             />
           </div>
 
@@ -208,9 +217,12 @@ const StaffDashboard = () => {
               onClick={() => setStatusFilter("all")}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                 statusFilter === "all"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
+                  ? "text-primary-foreground"
+                  : "bg-muted/50 text-muted-foreground hover:text-foreground"
               }`}
+              style={statusFilter === "all" ? { 
+                background: 'linear-gradient(135deg, hsl(220 90% 56%) 0%, hsl(280 80% 60%) 100%)' 
+              } : undefined}
             >
               All
             </button>
@@ -218,12 +230,15 @@ const StaffDashboard = () => {
               onClick={() => setStatusFilter("active")}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-1.5 ${
                 statusFilter === "active"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
+                  ? "text-primary-foreground"
+                  : "bg-muted/50 text-muted-foreground hover:text-foreground"
               }`}
+              style={statusFilter === "active" ? { 
+                background: 'linear-gradient(135deg, hsl(220 90% 56%) 0%, hsl(280 80% 60%) 100%)' 
+              } : undefined}
             >
               Active
-              <Badge variant="secondary" className="h-5 px-1.5 text-xs">
+              <Badge variant="secondary" className="h-5 px-1.5 text-xs bg-white/20">
                 {activeCount}
               </Badge>
             </button>
@@ -231,12 +246,15 @@ const StaffDashboard = () => {
               onClick={() => setStatusFilter("resolved")}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-1.5 ${
                 statusFilter === "resolved"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
+                  ? "text-primary-foreground"
+                  : "bg-muted/50 text-muted-foreground hover:text-foreground"
               }`}
+              style={statusFilter === "resolved" ? { 
+                background: 'linear-gradient(135deg, hsl(220 90% 56%) 0%, hsl(280 80% 60%) 100%)' 
+              } : undefined}
             >
               Resolved
-              <Badge variant="secondary" className="h-5 px-1.5 text-xs">
+              <Badge variant="secondary" className="h-5 px-1.5 text-xs bg-white/20">
                 {resolvedCount}
               </Badge>
             </button>
@@ -246,7 +264,8 @@ const StaffDashboard = () => {
         {/* Conversations List */}
         <ScrollArea className="flex-1">
           <div className="p-2">
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 py-2">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 py-2 flex items-center gap-2">
+              <Sparkles className="w-3 h-3 text-accent" />
               Conversations
             </h2>
             {filteredConversations.length === 0 ? (
@@ -259,12 +278,17 @@ const StaffDashboard = () => {
                 <button
                   key={conv.id}
                   onClick={() => setSelectedConversation(conv)}
-                  className={`w-full text-left p-3 rounded-lg mb-1 transition-all duration-200 opacity-0 animate-fade-in-up hover-scale ${
+                  className={`w-full text-left p-3 rounded-xl mb-1 transition-all duration-200 opacity-0 animate-fade-in-up hover-scale ${
                     selectedConversation?.id === conv.id
-                      ? "bg-primary/10 border border-primary/30"
-                      : "hover:bg-muted"
+                      ? "border border-primary/40"
+                      : "hover:bg-muted/50"
                   }`}
-                  style={{ animationDelay: `${index * 0.05}s` }}
+                  style={{ 
+                    animationDelay: `${index * 0.05}s`,
+                    ...(selectedConversation?.id === conv.id ? {
+                      background: 'linear-gradient(135deg, hsl(220 90% 56% / 0.1) 0%, hsl(280 80% 60% / 0.1) 100%)'
+                    } : {})
+                  }}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-medium text-foreground text-sm">{getName(conv)}</span>
@@ -285,13 +309,13 @@ const StaffDashboard = () => {
         </ScrollArea>
 
         {/* User Info */}
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-border/30">
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium text-foreground text-sm">{staffUsername}</p>
               <p className="text-xs text-muted-foreground">Support Agent</p>
             </div>
-            <Button variant="ghost" size="icon" onClick={handleLogout} className="hover:bg-destructive/20 hover:text-destructive transition-colors">
+            <Button variant="ghost" size="icon" onClick={handleLogout} className="hover:bg-destructive/20 hover:text-destructive transition-colors rounded-xl">
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
@@ -299,11 +323,11 @@ const StaffDashboard = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col relative z-10">
         {selectedConversation ? (
           <>
             {/* Chat Header */}
-            <header className="p-4 border-b border-border glass animate-fade-in">
+            <header className="p-4 border-b border-border/30 glass animate-fade-in">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="font-semibold text-foreground">{getName(selectedConversation)}</h2>
@@ -316,7 +340,7 @@ const StaffDashboard = () => {
                     variant="outline"
                     size="sm"
                     onClick={handleToggleStatus}
-                    className={`gap-2 transition-all duration-200 ${
+                    className={`gap-2 transition-all duration-200 rounded-xl border-border/50 ${
                       getStatus(selectedConversation) === "active"
                         ? "hover:bg-green-500/10 hover:text-green-500 hover:border-green-500/50"
                         : "hover:bg-primary/10 hover:text-primary hover:border-primary/50"
@@ -335,8 +359,11 @@ const StaffDashboard = () => {
                     )}
                   </Button>
                   <Badge 
-                    variant={getStatus(selectedConversation) === "active" ? "default" : "secondary"}
-                    className={getStatus(selectedConversation) === "active" ? "bg-primary" : "bg-green-500/20 text-green-500"}
+                    className={`rounded-lg ${
+                      getStatus(selectedConversation) === "active" 
+                        ? "bg-primary/20 text-primary border-primary/30" 
+                        : "bg-green-500/20 text-green-500 border-green-500/30"
+                    }`}
                   >
                     {getStatus(selectedConversation)}
                   </Badge>
@@ -362,15 +389,18 @@ const StaffDashboard = () => {
                       style={{ animationDelay: `${index * 0.03}s` }}
                     >
                       <div
-                        className={`max-w-[70%] rounded-2xl px-4 py-3 transition-all ${
+                        className={`max-w-[70%] rounded-2xl px-5 py-3.5 transition-all ${
                           message.sender === "support"
-                            ? "bg-primary text-primary-foreground"
-                            : "glass"
+                            ? "text-primary-foreground"
+                            : "glass-card"
                         }`}
+                        style={message.sender === "support" ? { 
+                          background: 'linear-gradient(135deg, hsl(220 90% 56%) 0%, hsl(280 80% 60%) 100%)' 
+                        } : undefined}
                       >
-                        <p className="text-sm">{getMessageText(message)}</p>
+                        <p className="text-sm leading-relaxed">{getMessageText(message)}</p>
                       </div>
-                      <span className="text-xs text-muted-foreground mt-1">
+                      <span className="text-xs text-muted-foreground mt-1.5">
                         {message.sender === "support" ? "You • " : `${getName(selectedConversation)} • `}
                         {formatTime(getMessageTime(message))}
                       </span>
@@ -381,15 +411,19 @@ const StaffDashboard = () => {
             </ScrollArea>
 
             {/* Reply Input */}
-            <footer className="p-4 border-t border-border glass animate-fade-in">
+            <footer className="p-4 border-t border-border/30 glass animate-fade-in">
               <form onSubmit={handleSendReply} className="flex gap-3 max-w-3xl">
                 <Input
                   placeholder="Type your reply..."
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
-                  className="flex-1 bg-card border-border focus:border-primary transition-colors"
+                  className="flex-1 bg-card/50 border-border/50 focus:border-primary transition-all duration-300 rounded-xl"
                 />
-                <Button type="submit" className="hover-scale">
+                <Button 
+                  type="submit" 
+                  className="hover-scale rounded-xl"
+                  style={{ background: 'linear-gradient(135deg, hsl(220 90% 56%) 0%, hsl(280 80% 60%) 100%)' }}
+                >
                   <Send className="w-4 h-4 mr-2" />
                   Send
                 </Button>
@@ -399,8 +433,9 @@ const StaffDashboard = () => {
         ) : (
           <div className="flex-1 flex items-center justify-center opacity-0 animate-fade-in-up">
             <div className="text-center">
-              <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                <MessageCircle className="w-10 h-10 text-muted-foreground" />
+              <div className="w-24 h-24 bg-muted/30 rounded-full flex items-center justify-center mx-auto mb-4 relative">
+                <div className="absolute inset-0 bg-primary/5 rounded-full animate-pulse" />
+                <MessageCircle className="w-12 h-12 text-muted-foreground relative z-10" />
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-2">Select a conversation</h3>
               <p className="text-muted-foreground">
