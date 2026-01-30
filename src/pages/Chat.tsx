@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowLeft, Send, Clock, Copy, Check } from "lucide-react";
+import { ArrowLeft, Send, Clock, Copy, Check, Sparkles } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -159,37 +159,53 @@ const Chat = () => {
 
   if (!isStarted) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
+        {/* Cosmic Background */}
+        <div className="cosmic-orb w-80 h-80 -top-40 -right-40" />
+        <div className="cosmic-orb w-64 h-64 bottom-20 -left-32" style={{ animationDelay: '3s' }} />
+
         {/* Header */}
-        <header className="border-b border-border/50 glass animate-fade-in">
+        <header className="border-b border-border/30 glass animate-fade-in relative z-10">
           <div className="max-w-4xl mx-auto px-6 py-4 flex items-center gap-4">
             <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <img src={logo} alt="Logo" className="w-8 h-8 rounded-lg" />
-            <h1 className="text-xl font-semibold text-foreground">Aurora Support</h1>
+            <h1 className="text-xl font-bold">
+              <span className="gradient-text">Astronix</span>
+              <span className="text-foreground ml-1">Support</span>
+            </h1>
           </div>
         </header>
 
         {/* Start Chat Form */}
-        <main className="flex-1 flex items-center justify-center px-6">
+        <main className="flex-1 flex items-center justify-center px-6 relative z-10">
           <form onSubmit={handleStartChat} className="w-full max-w-md space-y-6 opacity-0 animate-scale-in">
             <div className="text-center mb-8">
-              <div className="flex justify-center mb-6">
-                <img src={logo} alt="Logo" className="w-20 h-20 rounded-2xl animate-glow" />
+              <div className="flex justify-center mb-6 relative">
+                <div className="absolute inset-0 w-24 h-24 mx-auto bg-primary/20 blur-2xl rounded-full" />
+                <img src={logo} alt="Logo" className="w-24 h-24 rounded-2xl animate-glow relative z-10 animate-float" />
+              </div>
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <Sparkles className="w-4 h-4 text-accent" />
+                <span className="text-xs font-medium text-accent uppercase tracking-widest">Live Support</span>
               </div>
               <h2 className="text-3xl font-bold text-foreground mb-2">Start a Conversation</h2>
-              <p className="text-muted-foreground">Enter your name to begin</p>
+              <p className="text-muted-foreground">Enter your name to begin chatting</p>
             </div>
             <Input
               type="text"
               placeholder="Your name"
               value={userName}
               onChange={(e) => setUserName(e.target.value)}
-              className="h-12 text-base bg-card border-border focus:border-primary transition-colors"
+              className="h-14 text-base bg-card/50 border-border/50 focus:border-primary transition-all duration-300 rounded-xl"
               required
             />
-            <Button type="submit" className="w-full h-12 text-base hover-scale">
+            <Button 
+              type="submit" 
+              className="w-full h-14 text-base hover-scale rounded-xl font-semibold"
+              style={{ background: 'linear-gradient(135deg, hsl(220 90% 56%) 0%, hsl(280 80% 60%) 100%)' }}
+            >
               Start Chat
             </Button>
           </form>
@@ -199,22 +215,28 @@ const Chat = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
+      {/* Cosmic Background */}
+      <div className="cosmic-orb w-64 h-64 -top-32 -right-32 opacity-20" />
+
       {/* Header */}
-      <header className="border-b border-border/50 glass animate-fade-in">
+      <header className="border-b border-border/30 glass animate-fade-in relative z-10">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <img src={logo} alt="Logo" className="w-8 h-8 rounded-lg" />
-            <h1 className="text-xl font-semibold text-foreground">Aurora Support</h1>
+            <h1 className="text-xl font-bold">
+              <span className="gradient-text">Astronix</span>
+              <span className="text-foreground ml-1">Support</span>
+            </h1>
           </div>
           <Button
             variant="outline"
             size="sm"
             onClick={handleCopyLink}
-            className="gap-2 transition-all duration-200"
+            className="gap-2 transition-all duration-200 border-border/50 hover:border-primary/50"
           >
             {copied ? (
               <>
@@ -232,14 +254,15 @@ const Chat = () => {
       </header>
 
       {/* Messages */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto relative z-10">
         <div className="max-w-4xl mx-auto px-6 py-6 space-y-4">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center opacity-0 animate-fade-in-up">
-              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-                <Clock className="w-8 h-8 text-muted-foreground" />
+              <div className="w-20 h-20 bg-muted/50 rounded-full flex items-center justify-center mb-4 relative">
+                <div className="absolute inset-0 bg-primary/10 rounded-full animate-ping" />
+                <Clock className="w-10 h-10 text-muted-foreground relative z-10" />
               </div>
-              <h3 className="text-lg font-medium text-foreground mb-2">Waiting for operator</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-2">Waiting for operator</h3>
               <p className="text-muted-foreground">Our support team will respond shortly</p>
             </div>
           )}
@@ -252,15 +275,18 @@ const Chat = () => {
               style={{ animationDelay: `${index * 0.05}s` }}
             >
               <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 transition-all ${
+                className={`max-w-[80%] rounded-2xl px-5 py-3.5 transition-all ${
                   message.sender === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "glass"
+                    ? "text-primary-foreground"
+                    : "glass-card"
                 }`}
+                style={message.sender === "user" ? { 
+                  background: 'linear-gradient(135deg, hsl(220 90% 56%) 0%, hsl(280 80% 60%) 100%)' 
+                } : undefined}
               >
                 <p className="text-sm leading-relaxed">{getMessageText(message)}</p>
               </div>
-              <span className="text-xs text-muted-foreground mt-1 px-1">
+              <span className="text-xs text-muted-foreground mt-1.5 px-1">
                 {formatTime(getMessageTime(message))}
               </span>
             </div>
@@ -270,7 +296,7 @@ const Chat = () => {
       </main>
 
       {/* Input */}
-      <footer className="border-t border-border/50 glass animate-fade-in">
+      <footer className="border-t border-border/30 glass animate-fade-in relative z-10">
         <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto px-6 py-4">
           <div className="flex gap-3">
             <Input
@@ -278,9 +304,14 @@ const Chat = () => {
               placeholder="Type a message..."
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              className="flex-1 h-12 bg-card border-border focus:border-primary transition-colors"
+              className="flex-1 h-12 bg-card/50 border-border/50 focus:border-primary transition-all duration-300 rounded-xl"
             />
-            <Button type="submit" size="icon" className="h-12 w-12 shrink-0 hover-scale">
+            <Button 
+              type="submit" 
+              size="icon" 
+              className="h-12 w-12 shrink-0 hover-scale rounded-xl"
+              style={{ background: 'linear-gradient(135deg, hsl(220 90% 56%) 0%, hsl(280 80% 60%) 100%)' }}
+            >
               <Send className="w-5 h-5" />
             </Button>
           </div>
